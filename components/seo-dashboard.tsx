@@ -1,10 +1,18 @@
 "use client";
 
 import { startTransition, useState } from "react";
+import { KeywordResearchWorkspace } from "@/components/keyword-research/workspace";
+import {
+  deviceOptions,
+  languageOptions,
+  locationOptions,
+  osOptions
+} from "@/lib/market-options";
 import type {
-  FeatureFormState,
   SeoFeature,
+  SeoFeatureFormState,
   SeoResult,
+  StandardSeoFeature,
   TableRow
 } from "@/lib/types";
 
@@ -15,114 +23,86 @@ const features: Array<{
 }> = [
   {
     id: "overview",
-    label: "Overview",
-    description: "Domain Snapshot mit Rankings, Backlinks und Wettbewerbern."
+    label: "Überblick",
+    description: "Domain-Überblick mit Rankings, Backlinks und Wettbewerbern."
   },
   {
     id: "keywords",
-    label: "Keywords",
-    description: "Seed Keywords, Suchvolumen und Keyword-Ideen."
+    label: "Keyword-Recherche",
+    description:
+      "Eigenständiger Workspace für Matching Terms, Fragen, Cluster, BID und KI-/Brand-Gaps."
   },
   {
     id: "serp",
-    label: "SERP",
-    description: "Live SERP-Analyse fuer ein Keyword."
+    label: "SERP-Analyse",
+    description: "Live-SERP-Analyse für ein Keyword."
   },
   {
     id: "backlinks",
-    label: "Backlinks",
-    description: "Authority Snapshot und verweisende Seiten."
+    label: "Backlink-Analyse",
+    description: "Autoritäts-Überblick und verweisende Seiten."
   },
   {
     id: "audit",
-    label: "Audit",
-    description: "On-Page Check fuer eine URL oder Startseite."
+    label: "Seiten-Audit",
+    description: "On-Page-Prüfung für eine URL oder Startseite."
   },
   {
     id: "competitors",
-    label: "Competitors",
-    description: "Wettbewerber und Keyword-Ueberschneidung."
+    label: "Wettbewerber",
+    description: "Wettbewerber und Keyword-Überschneidungen."
   }
 ];
 
-const initialState: Record<SeoFeature, FeatureFormState> = {
+const sharedState = {
+  locationName: "Germany",
+  languageName: "German",
+  device: "desktop",
+  os: "windows",
+  enableBrowserRendering: false
+};
+
+const initialState: Record<StandardSeoFeature, SeoFeatureFormState> = {
   overview: {
+    ...sharedState,
     domain: "hubspot.com",
     compareDomain: "",
-    keywords: "",
     keyword: "",
-    url: "",
-    locationName: "United States",
-    languageName: "English",
-    device: "desktop",
-    os: "windows",
-    enableBrowserRendering: false
-  },
-  keywords: {
-    domain: "",
-    compareDomain: "",
-    keywords: "seo tool\nkeyword research\nrank tracker",
-    keyword: "",
-    url: "",
-    locationName: "United States",
-    languageName: "English",
-    device: "desktop",
-    os: "windows",
-    enableBrowserRendering: false
+    url: ""
   },
   serp: {
+    ...sharedState,
     domain: "",
     compareDomain: "",
-    keywords: "",
-    keyword: "best seo tools",
-    url: "",
-    locationName: "United States",
-    languageName: "English",
-    device: "desktop",
-    os: "windows",
-    enableBrowserRendering: false
+    keyword: "beste espresso maschine",
+    url: ""
   },
   backlinks: {
+    ...sharedState,
     domain: "ahrefs.com",
     compareDomain: "",
-    keywords: "",
     keyword: "",
-    url: "",
-    locationName: "United States",
-    languageName: "English",
-    device: "desktop",
-    os: "windows",
-    enableBrowserRendering: false
+    url: ""
   },
   audit: {
+    ...sharedState,
     domain: "https://example.com",
     compareDomain: "",
-    keywords: "",
     keyword: "",
-    url: "https://example.com",
-    locationName: "United States",
-    languageName: "English",
-    device: "desktop",
-    os: "windows",
-    enableBrowserRendering: false
+    url: "https://example.com"
   },
   competitors: {
+    ...sharedState,
     domain: "semrush.com",
     compareDomain: "ahrefs.com",
-    keywords: "",
     keyword: "",
-    url: "",
-    locationName: "United States",
-    languageName: "English",
-    device: "desktop",
-    os: "windows",
-    enableBrowserRendering: false
+    url: ""
   }
 };
 
 function DataTable({ rows }: { rows: TableRow[] }) {
   if (!rows.length) {
-    return <p className="muted">Keine Daten verfuegbar.</p>;
+    return <p className="muted">Keine Daten verfügbar.</p>;
   }
 
   const columns = Object.keys(rows[0]);
@@ -141,7 +121,7 @@ function DataTable({ rows }: { rows: TableRow[] }) {
           {rows.map((row, rowIndex) => (
             <tr key={`${rowIndex}-${columns[0]}`}>
               {columns.map((column) => (
-                <td key={column}>{String(row[column] ?? "n/a")}</td>
+                <td key={column}>{String(row[column] ?? "k. A.")}</td>
               ))}
             </tr>
           ))}
@@ -160,7 +140,7 @@ function ResultView({ result }: { result: SeoResult }) {
             <div>
               <h2>{result.title}</h2>
               <p className="subtle">
-                Ergebnisquelle: {result.mode === "demo" ? "Demo-Modus" : "Live via DataForSEO"}
+                Ergebnisquelle: {result.mode === "demo" ? "Demo-Modus" : "Live über DataForSEO"}
               </p>
             </div>
             <div className="badge">
@@ -214,15 +194,28 @@ function ResultView({ result }: { result: SeoResult }) {
 export function SeoDashboard() {
   const [activeFeature, setActiveFeature] = useState<SeoFeature>("overview");
   const [formState, setFormState] =
-    useState<Record<SeoFeature, FeatureFormState>>(initialState);
+    useState<Record<StandardSeoFeature, SeoFeatureFormState>>(initialState);
   const [result, setResult] = useState<SeoResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const activeConfig = features.find((feature) => feature.id === activeFeature)!;
-  const values = formState[activeFeature];
+  const seoFeature =
+    activeFeature === "keywords" ? "overview" : activeFeature;
+  const values = formState[seoFeature as StandardSeoFeature];
+  const showMarketSelectors =
+    activeFeature === "overview" ||
+    activeFeature === "serp" ||
+    activeFeature === "competitors";
 
-  function updateValue<K extends keyof FeatureFormState>(key: K, value: FeatureFormState[K]) {
+  function updateValue<K extends keyof SeoFeatureFormState>(
+    key: K,
+    value: SeoFeatureFormState[K]
+  ) {
+    if (activeFeature === "keywords") {
+      return;
+    }
+
     setFormState((current) => ({
       ...current,
       [activeFeature]: {
@@ -234,6 +227,11 @@ export function SeoDashboard() {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (activeFeature === "keywords") {
+      return;
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -252,7 +250,7 @@ export function SeoDashboard() {
 
         const data = (await response.json()) as SeoResult & { error?: string };
         if (!response.ok) {
-          throw new Error(data.error ?? "Request fehlgeschlagen.");
+          throw new Error(data.error ?? "Anfrage fehlgeschlagen.");
         }
 
         setResult(data);
@@ -273,10 +271,10 @@ export function SeoDashboard() {
       <section className="hero">
         <div className="hero-grid">
           <div>
-            <p className="eyebrow">SEO Workbench</p>
-            <h1>Build your own search intelligence stack.</h1>
+            <p className="eyebrow">SEO-Plattform</p>
+            <h1>Baue deine eigene Suchdaten-Plattform.</h1>
             <p>
-              Diese App bildet die Kernmodule eines Ahrefs- oder Semrush-aehnlichen
+              Diese App bildet die Kernmodule eines Ahrefs- oder Semrush-ähnlichen
               SEO-Workflows auf Basis der DataForSEO API ab. Die API-Zugriffe laufen
               serverseitig, damit Zugangsdaten nicht im Browser landen.
             </p>
@@ -284,13 +282,16 @@ export function SeoDashboard() {
           <div className="hero-aside">
             <div className="callout">
               <strong>Module</strong>
-              <span>Overview, Keywords, SERP, Backlinks, Audit und Competitor Gap.</span>
+              <span>
+                Überblick, Keyword-Workspace, SERP-Analyse, Backlink-Analyse,
+                Seiten-Audit und Wettbewerb.
+              </span>
             </div>
             <div className="callout">
-              <strong>Betriebsmodus</strong>
+              <strong>Keyword-Recherche-Fokus</strong>
               <span>
-                Ohne gesetzte Credentials rendert die App Demo-Daten, mit Credentials
-                verwendet sie die Live-Endpunkte von DataForSEO.
+                Matching Terms, Fragen, Cluster, Tool-Chancen, Business-Potenzial,
+                Schwierigkeit und KI-/Brand-Gap in einem eigenen Arbeitsbereich.
               </span>
             </div>
           </div>
@@ -310,180 +311,170 @@ export function SeoDashboard() {
         ))}
       </div>
 
-      <div className="dashboard-grid">
-        <section className="panel">
-          <div className="panel-inner">
-            <h2>{activeConfig.label}</h2>
-            <p className="subtle">{activeConfig.description}</p>
+      {activeFeature === "keywords" ? (
+        <KeywordResearchWorkspace />
+      ) : (
+        <div className="dashboard-grid">
+          <section className="panel">
+            <div className="panel-inner">
+              <h2>{activeConfig.label}</h2>
+              <p className="subtle">{activeConfig.description}</p>
 
-            <form className="stack" onSubmit={handleSubmit} style={{ marginTop: 20 }}>
-              {(activeFeature === "overview" ||
-                activeFeature === "backlinks" ||
-                activeFeature === "competitors") && (
-                <div className="field">
-                  <label htmlFor="domain">Domain</label>
-                  <input
-                    id="domain"
-                    onChange={(event) => updateValue("domain", event.target.value)}
-                    placeholder="example.com"
-                    value={values.domain}
-                  />
-                </div>
-              )}
-
-              {activeFeature === "keywords" && (
-                <div className="field">
-                  <label htmlFor="keywords">Seed Keywords</label>
-                  <textarea
-                    id="keywords"
-                    onChange={(event) => updateValue("keywords", event.target.value)}
-                    placeholder={"keyword eins\nkeyword zwei"}
-                    value={values.keywords}
-                  />
-                </div>
-              )}
-
-              {activeFeature === "serp" && (
-                <div className="field">
-                  <label htmlFor="keyword">Keyword</label>
-                  <input
-                    id="keyword"
-                    onChange={(event) => updateValue("keyword", event.target.value)}
-                    placeholder="best seo software"
-                    value={values.keyword}
-                  />
-                </div>
-              )}
-
-              {activeFeature === "audit" && (
-                <>
+              <form className="stack" onSubmit={handleSubmit} style={{ marginTop: 20 }}>
+                {(activeFeature === "overview" ||
+                  activeFeature === "backlinks" ||
+                  activeFeature === "competitors") && (
                   <div className="field">
-                    <label htmlFor="url">URL</label>
+                    <label htmlFor="domain">Domain</label>
                     <input
-                      id="url"
-                      onChange={(event) => updateValue("url", event.target.value)}
-                      placeholder="https://example.com"
-                      value={values.url}
+                      id="domain"
+                      onChange={(event) => updateValue("domain", event.target.value)}
+                      placeholder="example.com"
+                      value={values.domain}
                     />
                   </div>
-                  <label className="checkbox-row">
+                )}
+
+                {activeFeature === "serp" && (
+                  <div className="field">
+                    <label htmlFor="keyword">Keyword</label>
                     <input
-                      checked={values.enableBrowserRendering}
-                      onChange={(event) =>
-                        updateValue("enableBrowserRendering", event.target.checked)
-                      }
-                      type="checkbox"
+                      id="keyword"
+                      onChange={(event) => updateValue("keyword", event.target.value)}
+                      placeholder="beste espresso maschine"
+                      value={values.keyword}
                     />
-                    Browser Rendering aktivieren
-                  </label>
-                </>
-              )}
-
-              {activeFeature === "competitors" && (
-                <div className="field">
-                  <label htmlFor="compare-domain">Vergleichsdomain</label>
-                  <input
-                    id="compare-domain"
-                    onChange={(event) => updateValue("compareDomain", event.target.value)}
-                    placeholder="competitor.com"
-                    value={values.compareDomain}
-                  />
-                </div>
-              )}
-
-              {(activeFeature === "overview" ||
-                activeFeature === "keywords" ||
-                activeFeature === "serp" ||
-                activeFeature === "competitors") && (
-                <>
-                  <div className="split">
-                    <div className="field">
-                      <label htmlFor="location">Location</label>
-                      <input
-                        id="location"
-                        onChange={(event) => updateValue("locationName", event.target.value)}
-                        placeholder="United States"
-                        value={values.locationName}
-                      />
-                    </div>
-                    <div className="field">
-                      <label htmlFor="language">Language</label>
-                      <input
-                        id="language"
-                        onChange={(event) => updateValue("languageName", event.target.value)}
-                        placeholder="English"
-                        value={values.languageName}
-                      />
-                    </div>
                   </div>
-                  {activeFeature === "serp" && (
+                )}
+
+                {activeFeature === "audit" && (
+                  <>
+                    <div className="field">
+                      <label htmlFor="url">URL</label>
+                      <input
+                        id="url"
+                        onChange={(event) => updateValue("url", event.target.value)}
+                        placeholder="https://example.com"
+                        value={values.url}
+                      />
+                    </div>
+                    <label className="checkbox-row">
+                      <input
+                        checked={values.enableBrowserRendering}
+                        onChange={(event) =>
+                          updateValue("enableBrowserRendering", event.target.checked)
+                        }
+                        type="checkbox"
+                      />
+                      Browser-Rendering aktivieren
+                    </label>
+                  </>
+                )}
+
+                {activeFeature === "competitors" && (
+                  <div className="field">
+                    <label htmlFor="compare-domain">Vergleichsdomain</label>
+                    <input
+                      id="compare-domain"
+                      onChange={(event) => updateValue("compareDomain", event.target.value)}
+                      placeholder="wettbewerber.de"
+                      value={values.compareDomain}
+                    />
+                  </div>
+                )}
+
+                {showMarketSelectors && (
+                  <>
                     <div className="split">
                       <div className="field">
-                        <label htmlFor="device">Device</label>
+                        <label htmlFor="location">Standort</label>
                         <select
-                          id="device"
-                          onChange={(event) => updateValue("device", event.target.value)}
-                          value={values.device}
+                          id="location"
+                          onChange={(event) => updateValue("locationName", event.target.value)}
+                          value={values.locationName}
                         >
-                          <option value="desktop">desktop</option>
-                          <option value="mobile">mobile</option>
+                          {locationOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
                         </select>
                       </div>
                       <div className="field">
-                        <label htmlFor="os">OS</label>
+                        <label htmlFor="language">Sprache</label>
                         <select
-                          id="os"
-                          onChange={(event) => updateValue("os", event.target.value)}
-                          value={values.os}
+                          id="language"
+                          onChange={(event) => updateValue("languageName", event.target.value)}
+                          value={values.languageName}
                         >
-                          <option value="windows">windows</option>
-                          <option value="macos">macos</option>
-                          <option value="android">android</option>
-                          <option value="ios">ios</option>
+                          {languageOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     </div>
-                  )}
-                </>
-              )}
 
-              <button className="primary-button" disabled={isLoading} type="submit">
-                {isLoading ? "Lade Daten..." : `${activeConfig.label} ausfuehren`}
-              </button>
-            </form>
+                    {activeFeature === "serp" && (
+                      <div className="split">
+                        <div className="field">
+                          <label htmlFor="device">Gerät</label>
+                          <select
+                            id="device"
+                            onChange={(event) => updateValue("device", event.target.value)}
+                            value={values.device}
+                          >
+                            {deviceOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="field">
+                          <label htmlFor="os">Betriebssystem</label>
+                          <select
+                            id="os"
+                            onChange={(event) => updateValue("os", event.target.value)}
+                            value={values.os}
+                          >
+                            {osOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
 
-            <div className="meta-row">
-              <span className="badge">Server-side API Proxy</span>
-              <span className="badge">DataForSEO Demo Fallback</span>
+                <button className="primary-button" disabled={isLoading} type="submit">
+                  {isLoading ? "Daten werden geladen..." : "Analyse starten"}
+                </button>
+              </form>
             </div>
+          </section>
 
-            {isLoading ? (
-              <div className="status loading">
-                Anfrage wird verarbeitet. Bei Live-Daten kann das je nach Endpoint etwas dauern.
-              </div>
-            ) : null}
-
+          <section>
             {error ? <div className="status error">{error}</div> : null}
-          </div>
-        </section>
-
-        <section>
-          {result ? (
-            <ResultView result={result} />
-          ) : (
-            <div className="panel empty-state">
-              <div className="panel-inner">
-                <h2>Noch keine Analyse gestartet</h2>
-                <p>
-                  Waehle links ein Modul aus und starte eine Analyse. Im Demo-Modus
-                  siehst du sofort strukturierte Beispielresultate; mit gesetzten
-                  Credentials kommen die Daten live von DataForSEO.
-                </p>
+            {isLoading ? (
+              <div className="status loading">Daten werden geladen…</div>
+            ) : null}
+            {result ? (
+              <ResultView result={result} />
+            ) : (
+              <div className="empty-state">
+                <p className="eyebrow">Bereit</p>
+                <h2>{activeConfig.label}</h2>
+                <p>{activeConfig.description}</p>
               </div>
-            </div>
-          )}
-        </section>
-      </div>
+            )}
+          </section>
+        </div>
+      )}
     </main>
   );
 }
