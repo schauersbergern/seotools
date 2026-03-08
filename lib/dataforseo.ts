@@ -33,7 +33,7 @@ export class DataForSeoClient {
     const json = (await response.json()) as Record<string, unknown>;
     if (!response.ok) {
       throw new Error(
-        `DataForSEO request failed for ${path}: ${String(json.status_message ?? response.statusText)}`
+        `DataForSEO-Anfrage für ${path} fehlgeschlagen: ${String(json.status_message ?? response.statusText)}`
       );
     }
 
@@ -42,7 +42,7 @@ export class DataForSeoClient {
     const statusCode = Number(firstTask?.status_code ?? json.status_code ?? 0);
     if (statusCode !== 20000) {
       throw new Error(
-        `DataForSEO error for ${path}: ${String(firstTask?.status_message ?? json.status_message ?? "Unknown error")}`
+        `DataForSEO-Fehler für ${path}: ${String(firstTask?.status_message ?? json.status_message ?? "Unbekannter Fehler")}`
       );
     }
 
